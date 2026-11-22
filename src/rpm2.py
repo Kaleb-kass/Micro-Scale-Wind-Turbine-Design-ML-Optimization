@@ -137,7 +137,10 @@ def header_matches_aoa(h):
     if not isinstance(h, str):
         return False
     hh = h.strip().lower()
-    keywords = ["angle of attack", "aoa", "alpha", "a.o.a", "a o a", "angle", "attack"]
+    # Other angles in BEM output (flow angle phi, pitch/twist angle beta) must not be taken for the AoA
+    if any(x in hh for x in ("flow", "phi", "pitch", "beta", "twist")):
+        return False
+    keywords = ["angle of attack", "angle of attach", "aoa", "alpha", "a.o.a", "a o a", "attack"]
     for kw in keywords:
         if kw in hh:
             return True
