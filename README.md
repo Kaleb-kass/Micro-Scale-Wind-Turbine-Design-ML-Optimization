@@ -1,99 +1,86 @@
-# Wind Turbine – Power vs RPM (GPR Optimization)
+# Wind Turbine Power–RPM Optimization with Gaussian Process Regression
 
-This project ingests aerodynamic blade data blocks from CSV, integrates torque to power, fits a Gaussian Process Regression (GPR) surrogate, finds the optimal RPM, and generates a suite of plots (power, Cl/Cd, AoA, Betz comparison). Interactive dialogs are included for file selection and RPM queries.
+A Python tool that finds the **optimal rotor speed of a small wind turbine** from blade-element data.
+It reads aerodynamic results for a set of rotational speeds, integrates the blade torque into power,
+fits a **Gaussian process regression (GPR)** surrogate of power vs. RPM with a 95 % confidence band,
+and searches it for the maximum. It also plots lift-to-drag ratio and angle of attack along the blade,
+and offers a small GUI and a command line for quick predictions.
 
-Main script: [rpm2.py](rpm2.py)
+Developed for the micro-wind turbine design project, M.Sc. Energy Engineering, University of Padova
+(Prof. Giorgio Pavesi), 2025.
 
-## What It Does
-- Parses RPM blocks: a row whose first cell is `n` (next cell is the RPM), followed by a header row and data rows until a blank/non-numeric radius.
-- Prefers Torque + Radius columns (integrates torque -> power); falls back to Power Integral columns. Optional: Cl, Cd, AoA.
-- Cleans numeric values robustly (thousand separators, stray units, accounting parentheses, spaced scientific notation).
-- Fits a GPR surrogate on `PowerIntegral(n)`, searches the maximum, and provides point predictions with 95% CI.
-- Plots: Power vs RPM (confidence band), Cl/Cd vs Radius, AoA vs Radius, Cp vs Betz limit comparison.
-- Interactive flows: Tk file picker (with console fallback), quick RPM popup, and results GUI.
+![Power vs RPM with GPR surrogate, E176 blade](figures/e176_power_vs_rpm.png)
 
-## Requirements
-- Python 3.10+ (tested on Windows)
-- Core libs (see [requirements.txt](requirements.txt))
-  - numpy
-  - pandas
-  - scikit-learn
-  - matplotlib
-  - pillow (only if you load optional logo images in the GUIs)
-- Optional: SciencePlots (styling; auto-fallback if missing)
-- Tkinter: bundled with standard Python installers on Windows (needed for dialogs/GUI).
+## Results on the included data
 
-Install core dependencies with `pip install -r requirements.txt`.
+| Blade airfoil | Optimal speed | Maximum power integral | GPR kernel (fitted) |
+|---|---|---|---|
+| E176 (truncated) | **426.9 rpm** | **≈ 105.0 W** | 1.09² · RBF(ℓ = 0.376) |
+| S900 (truncated) | **409.3 rpm** | **≈ 103.7 W** | 0.894² · RBF(ℓ = 0.136) |
 
-## Quick Start (Windows / PowerShell)
+Both blades peak in a narrow band around 410–430 rpm; the confidence band widens where the RPM samples
+are sparse (above 550 rpm), which shows where more data would improve the surrogate.
 
-```powershell
-# 1) Create and activate a virtual environment
-python -m venv .venv
-.venv\Scripts\activate
+| Lift-to-drag ratio along the blade (E176) | Angle of attack along the blade (E176) |
+|---|---|
+| ![Cl/Cd vs radius](figures/e176_cl_cd_vs_radius.png) | ![AoA vs radius](figures/e176_aoa_vs_radius.png) |
 
-# 2) Upgrade pip (recommended)
-python -m pip install --upgrade pip
+| Power vs RPM (S900) | Lift-to-drag ratio along the blade (S900) |
+|---|---|
+| ![Power vs RPM S900](figures/s900_power_vs_rpm.png) | ![Cl/Cd vs radius S900](figures/s900_cl_cd_vs_radius.png) |
 
-# 3) Install core dependencies
-pip install -r requirements.txt
+## How it works
 
-# 4) Optional: nicer scientific styles
-pip install SciencePlots
+1. **Parse** the CSV: each block starts with a row `n, <rpm>`, followed by a header row and one row per
+   blade station until a blank or non-numeric radius. Numbers are cleaned robustly (thousand separators,
+   units, scientific notation with spaces).
+2. **Power per RPM**: torque is integrated along the radius and multiplied by ω = 2πn/60; if no torque
+   column exists, a power-integral column is used instead.
+3. **Surrogate**: the RPM and power values are standardized and fitted with a GPR (constant × RBF
+   kernel, multiple optimizer restarts).
+4. **Optimum**: the surrogate is evaluated on a dense 2000-point RPM grid and its maximum is reported,
+   with a warning if a query falls outside the data range.
+5. **Plots**: power vs. RPM with ±2σ band, C<sub>l</sub>/C<sub>d</sub> and angle of attack vs. radius,
+   and (when blade diameter, air density and wind speed are entered in the GUI) the power coefficient
+   compared with the Betz limit.
 
-# 5) Run the main script (GUI file picker by default)
-python rpm2.py
+## Usage
 
-# OR: provide a CSV path directly and open the results window
-python rpm2.py --csv "your-data.csv" --results
+```bash
+python -m pip install -r requirements.txt
+
+# run on an included dataset: prints the optimum, saves figures to figures/
+python src/rpm2.py --csv data/E176_truncated.csv
+
+# predict power at a given speed without plotting
+python src/rpm2.py --csv data/E176_truncated.csv --rpm 450 --no-plot
+
+# interactive tools
+python src/rpm2.py --csv data/E176_truncated.csv --gui       # query any RPM
+python src/rpm2.py --csv data/E176_truncated.csv --results   # summary window
+
+# no --csv: dialogs ask for blade model, diameter, air density, wind speed and the CSV file
+python src/rpm2.py
 ```
 
-Outputs:
-- Console: optimal RPM and max Power Integral (warns if extrapolating).
-- Figures: `figures/power_vs_rpm.*`, `figures/cl_cd_vs_radius.*`, `figures/aoa_vs_radius.*`, `figures/betz_limit_comparison.*`.
+Run the commands from the repository root (figures are written to `figures/`).
+Python 3.10+; Tkinter is needed only for the GUI options. `pip install SciencePlots` gives
+journal-style plots (optional).
 
-### Common CLI examples
+## Repository structure
 
-```powershell
-# Predict at a given RPM (e.g., 450 rpm) and skip plotting
-python rpm2.py --csv "your-data.csv" --rpm 450 --no-plot
-
-# Launch a small GUI to query RPM interactively
-python rpm2.py --csv "your-data.csv" --gui
-
-# Show a minimal popup for a single RPM query
-python rpm2.py --csv "your-data.csv" --popup
-
-# Show the results window (optimal RPM, kernel, stats)
-python rpm2.py --csv "your-data.csv" --results
+```
+├── src/
+│   └── rpm2.py                 GPR pipeline, plots, GUI and CLI
+├── data/
+│   ├── E176_truncated.csv      blade-element results per RPM, E176 airfoil
+│   └── S900_truncated.csv      blade-element results per RPM, S900 airfoil
+├── figures/                    plots generated from the included data
+├── assets/                     logos shown in the GUI windows
+└── requirements.txt
 ```
 
-## Data File
-- Default: select via Tk file picker; or pass `--csv path/to/file.csv`.
-- Block structure:
-  - A row whose first cell is `n`; the next cell is the RPM value.
-  - The following row is a header row.
-  - Preferred: a Torque column ("torque", "torq", "moment", etc.) plus a Radius column.
-  - Fallback: a Power Integral column ("power integral", "power", etc.).
-  - Optional columns: Radius (if not first col), Cl, Cd, AoA.
-  - Data rows continue until a blank or non-numeric radius.
+## Author
 
-## Optional Scripts
-- [stoke.py](stoke.py): simple animated map (requires Cartopy; not needed for rpm2 workflow).
-
-## Troubleshooting
-- ModuleNotFoundError: `pip install -r requirements.txt` (and `pip install SciencePlots` if desired).
-- CSV not found: ensure the path is correct or pass `--csv` explicitly.
-- GUI not showing: verify Tkinter works:
-  ```powershell
-  python -c "import tkinter as tk; print('tk OK'); tk.Tk().destroy()"
-  ```
-  If it fails, reinstall Python with Tcl/Tk enabled.
-- Style issues: SciencePlots is optional; the script falls back automatically.
-- Cartopy errors: only relevant for [stoke.py](stoke.py); consider Conda/wheels if needed.
-
-## Reproducibility
-- GPR uses a fixed `random_state` for optimizer restarts to make results reproducible given the same data file.
-
-## Notes
-- Figures are saved automatically in `figures/`. PDF is suitable for reports; PNG is 300 DPI. The plots include minor ticks, scientific notation on y, confidence bands, and a clearly labeled optimum.
+**Kaleb Kassa Lafebo**, M.Sc. Energy Engineering, University of Padova.
+[LinkedIn](https://www.linkedin.com/in/kaleb-kassa) · [GitHub](https://github.com/Kaleb-kass)
