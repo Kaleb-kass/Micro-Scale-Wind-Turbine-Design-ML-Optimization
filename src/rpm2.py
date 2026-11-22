@@ -36,6 +36,10 @@ parser.add_argument("--no-plot", action="store_true", help="Skip figure generati
 parser.add_argument("--gui", action="store_true", help="Launch a small GUI to query RPM interactively")
 parser.add_argument("--popup", action="store_true", help="Show a small popup to enter an RPM and get predicted power")
 parser.add_argument("--results", action="store_true", help="Show a results window with key outputs")
+parser.add_argument("--model", type=str, default=None, help="Blade model label, e.g. 'E176 Truncated'")
+parser.add_argument("--diameter", type=float, default=None, help="Rotor diameter [m] (enables Cp and Betz plot)")
+parser.add_argument("--rho", type=float, default=None, help="Air density [kg/m^3]")
+parser.add_argument("--wind-speed", type=float, default=None, help="Free-stream wind speed Vin [m/s]")
 args, unknown = parser.parse_known_args()
 
 # ---------- Helpers ----------
@@ -326,6 +330,18 @@ def format_ideal_power(meta):
 csv_path = args.csv
 blade_metadata = None
 ideal_power_val = None
+
+# Blade metadata from the command line (same fields as the GUI dialog)
+if any(v is not None for v in (args.model, args.diameter, args.rho, args.wind_speed)):
+    blade_metadata = {
+        "model": args.model,
+        "diameter": args.diameter,
+        "air_density": args.rho,
+        "wind_speed": args.wind_speed,
+    }
+    ideal_power_val = compute_ideal_power(blade_metadata)
+    if ideal_power_val is not None:
+        print(f"Ideal power (0.5*A*rho*Vin^3): {ideal_power_val:.3f} W")
 
 if csv_path is None:
     if HAS_TK:
