@@ -63,6 +63,10 @@ Blade-element results at a set of rotor speeds (`data/`) are turned into a smoot
 |---|---|
 | ![Cl/Cd vs radius](figures/optimization/e176_cl_cd_vs_radius.png) | ![AoA vs radius](figures/optimization/e176_aoa_vs_radius.png) |
 
+Along most of the span the blade works at an angle of attack of about 5.5–8°, rising to about 10° only at the
+very tip, so it stays well below stall (about 18–20°) at every rotor speed. The lift-to-drag ratio peaks at
+about 60 near the optimum speed and is highest at low speeds.
+
 The same analysis on the **S900-Truncated** airfoil (`data/S900_truncated.csv`) gives an optimum at
 409.3 rpm; its plots are in `figures/optimization/`.
 
